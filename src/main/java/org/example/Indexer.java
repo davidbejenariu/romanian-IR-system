@@ -8,10 +8,13 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.tika.Tika;
-import org.apache.tika.exception.TikaException;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,10 +35,41 @@ public class Indexer {
         this.writer = new IndexWriter(dir, config);
     }
 
+    public static String extractText(File file) throws Exception {
+        String fileName = file.getName().toLowerCase();
+
+        if (fileName.endsWith(".txt")) {
+            return extractTextFromTxt(file);
+        } else if (fileName.endsWith(".pdf")) {
+            return extractTextFromPdf(file);
+        } else if (fileName.endsWith(".docx")) {
+            return extractTextFromDocx(file);
+        } else {
+            throw new IllegalArgumentException("Unsupported file format: " + fileName);
+        }
+    }
+
+    private static String extractTextFromTxt(File file) throws IOException {
+        return Files.readString(file.toPath());
+    }
+
+    private static String extractTextFromPdf(File file) throws IOException {
+        try (PDDocument document = PDDocument.load(file)) {
+            return new PDFTextStripper().getText(document);
+        }
+    }
+
+    private static String extractTextFromDocx(File file) throws IOException {
+        try (FileInputStream fis = new FileInputStream(file);
+             XWPFDocument document = new XWPFDocument(fis);
+             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
+            return extractor.getText();
+        }
+    }
+
     public void indexFile(File file) throws IOException {
         try {
-            Tika tika = new Tika();
-            String content = tika.parseToString(file);
+            String content = extractText(file);
             System.out.println("Extracted Content:");
             System.out.println(content);
 
@@ -46,7 +80,7 @@ public class Indexer {
             doc.add(new TextField("filename", file.getName(), TextField.Store.YES));
 
             writer.addDocument(doc);
-        } catch (IOException | TikaException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
