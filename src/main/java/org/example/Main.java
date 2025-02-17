@@ -50,6 +50,7 @@ public class Main {
             Indexer indexer = new Indexer(indexPath);
 
             File[] docs = new File(pathToDocs).listFiles();
+            assert docs != null;
             for (File file : docs) {
                 if (file.isFile()) {
                     System.out.println("Indexing file: " + file.getName());
